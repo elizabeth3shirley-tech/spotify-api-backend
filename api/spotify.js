@@ -1,11 +1,16 @@
 export default async function handler(req, res) {
-  // Enable CORS
+  // More explicit CORS headers
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
 
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    res.status(200).end();
+    return;
   }
 
   const { trackId } = req.query;
@@ -28,10 +33,14 @@ export default async function handler(req, res) {
       body: 'grant_type=client_credentials'
     });
 
+    if (!tokenResponse.ok) {
+      throw new Error('Failed to authenticate with Spotify');
+    }
+
     const tokenData = await tokenResponse.json();
     const token = tokenData.access_token;
 
-    // Get track info
+    // Get track info and audio features in parallel
     const [trackInfo, audioFeatures] = await Promise.all([
       fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
